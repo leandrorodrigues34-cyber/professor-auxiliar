@@ -1,20 +1,36 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import OpenAI from "openai";
 
-const client = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY!,
-});
+const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY! });
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  const { message } = req.body;
+  // CORS básico (se algum dia embutir fora do mesmo domínio)
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  if (req.method === "OPTIONS") return res.status(204).end();
 
-  const completion = await client.chat.completions.create({
-    model: "gpt-4o-mini",
-    messages: [
-      { role: "system", content: "Você é o Professor Auxiliar do Leandro Rodrigues, que orienta alunos dentro da plataforma Música Criativa. Seja gentil, didático e direto." },
-      { role: "user", content: message },
-    ],
-  });
+  if (req.method !== "POST") {
+    return res.status(405).json({ error: "Method not allowed" });
+  }
 
-  res.status(200).json({ reply: completion.choices[0].message.content });
+  const { messages } = req.body || {};
+  if (!messages || !Array.isArray(messages) || messages.length === 0) {
+    return res.status(400).json({ error: "messages array is required" });
+  }
+
+  try {
+    const completion = await client.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages, // histórico completo vindo do front
+      max_tokens: 600,
+      temperature: 0.6
+    });
+
+    const reply = completion.choices?.[0]?.message?.content || "…";
+    return res.status(200).json({ reply });
+  } catch (err: any) {
+    console.error("send error:", err?.message || err);
+    return res.status(500).json({ error: "internal_error" });
+  }
 }
