@@ -86,29 +86,48 @@
   </div>
 
   <script>
-    async function sendMessage() {
-      const input = document.getElementById("userInput");
-      const msg = input.value.trim();
-      if (!msg) return;
+  const msgsEl = document.getElementById("messages");
+  const inp = document.getElementById("userInput");
+  const history = [
+    { role: "system", content: "Você é o Professor Auxiliar do Leandro Rodrigues, dentro da plataforma Música Criativa. Responda com didática, simpatia e objetividade." }
+  ];
 
-      const messagesDiv = document.getElementById("messages");
-      const userMsg = document.createElement("p");
-      userMsg.innerHTML = `<strong>Você:</strong> ${msg}`;
-      messagesDiv.appendChild(userMsg);
-      input.value = "";
+  function addBubble(role, text) {
+    const p = document.createElement("p");
+    p.innerHTML = `<strong>${role === "user" ? "Você" : "Professor"}:</strong> ${text}`;
+    msgsEl.appendChild(p);
+    msgsEl.scrollTop = msgsEl.scrollHeight;
+  }
 
-      const response = await fetch("/api/send", {
+  async function sendMessage() {
+    const content = inp.value.trim();
+    if (!content) return;
+    addBubble("user", content);
+    history.push({ role: "user", content });
+    inp.value = "";
+
+    try {
+      const r = await fetch("/api/send", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: msg })
+        body: JSON.stringify({ messages: history })
       });
-
-      const data = await response.json();
-      const botMsg = document.createElement("p");
-      botMsg.innerHTML = `<strong>Professor:</strong> ${data.reply}`;
-      messagesDiv.appendChild(botMsg);
-      messagesDiv.scrollTop = messagesDiv.scrollHeight;
+      const j = await r.json();
+      const reply = j.reply || "...";
+      addBubble("assistant", reply);
+      history.push({ role: "assistant", content: reply });
+    } catch (e) {
+      addBubble("assistant", "Ops, houve um erro. Tente novamente.");
     }
-  </script>
+  }
+
+  // Enviar com Enter
+  document.querySelector("button").onclick = sendMessage;
+  inp.addEventListener("keydown", e => { if (e.key === "Enter") sendMessage(); });
+
+  // Mensagem de boas-vindas local
+  addBubble("assistant", "Olá! Sou o Professor Auxiliar 🎹 Me conte seu nível, objetivos e dificuldades para eu montar seu plano.");
+</script>
+
 </body>
 </html>
